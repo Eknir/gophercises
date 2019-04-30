@@ -5,11 +5,14 @@ import (
     "os"
     "fmt"
     "encoding/csv"
+    "time"
+    "strings"
 )
 
 func main() {
   csvFilename := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
 
+  timeLimit := flag.Int("limit", 30, "the time limit for the quiz in seconds")
   flag.Parse()
 
   file, err := os.Open(*csvFilename)
@@ -22,20 +25,38 @@ func main() {
     exit("Failed to parse the provided CSV file.")
   }
 
+  timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
+
   correct := 0
   problems := parseLines(lines)
 
+  problemLoop:
   for i, p := range problems {
-    fmt.Printf("Problem #%d: %s = \n", i+1, p.q)
-    var answer string
-    fmt.Scanf("%s\n", &answer)
-    if answer == p.a {
-      correct++
+    fmt.Printf("Problem #%d: %s = ", i+1, p.q)
+    answerCh := make(chan string)
+    go func() {
+      var answer string
+      fmt.Scanf("%s\n", &answer)
+      answerCh <- answer
+    }()
+
+    select {
+    case <-timer.C:
+      fmt.Printf("\nTime is up! Maximum duration exceeded: %d seconds", *timeLimi
+      break problemLoop
+    case answer := <- answerCh:
+      if answer == p.a {
+        correct++
+      }
     }
   }
 
-  fmt.Printf("You scored %d out of %d.\n", correct, len(problems))
+  printScore(correct, len(problems))
 
+}
+
+func printScore(score, outOf int) {
+    fmt.Printf("\nYou scored %d out of %d.\n", score, outOf)
 }
 
 type problem struct {
